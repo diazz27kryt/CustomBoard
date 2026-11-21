@@ -75,6 +75,45 @@ class CustomKeyboardService : InputMethodService() {
         )
     }
 
+    private val russianWords = listOf(
+        "привет", "приветик", "привычка", "природа", "пример", "просто", "проблема", "проверка",
+        "почему", "пока", "потом", "после", "пожалуйста", "спасибо", "сегодня", "завтра",
+        "сейчас", "хорошо", "хороший", "хорошая", "можно", "нужно", "будет", "было",
+        "есть", "если", "когда", "который", "которая", "которые", "чтобы", "тогда",
+        "делать", "дело", "дом", "друг", "друзья", "игра", "играть", "клавиатура",
+        "телефон", "компьютер", "работает", "работать", "люблю", "хочу", "могу",
+        "давай", "ладно", "ага", "нет", "да", "мой", "моя", "мне", "тебе", "твой",
+        "это", "этот", "эта", "там", "тут", "очень", "больше", "меньше", "новый",
+        "новая", "красиво", "удобно", "быстро", "медленно", "круто", "классно"
+    )
+    private val englishWords = listOf(
+        "hello", "help", "hey", "thanks", "thank", "there", "their", "then", "this",
+        "that", "these", "those", "the", "they", "them", "today", "tomorrow", "time",
+        "good", "great", "going", "game", "games", "keyboard", "phone", "computer",
+        "work", "working", "world", "would", "what", "when", "where", "why", "which",
+        "with", "will", "want", "was", "are", "and", "about", "after", "again",
+        "because", "before", "can", "could", "cool", "done", "don't", "for", "from",
+        "have", "here", "how", "just", "know", "like", "love", "make", "more",
+        "much", "nice", "now", "okay", "one", "please", "really", "see", "some",
+        "something", "sure", "you", "your", "yes"
+    )
+
+    private fun currentWord(): String {
+        val before = currentInputConnection?.getTextBeforeCursor(48, 0)?.toString().orEmpty()
+        return before.takeLastWhile { it.isLetter() }
+    }
+
+    private fun suggestionsFor(word: String): List<String> {
+        if (word.isBlank()) return emptyList()
+        val dictionary = if (english) englishWords else russianWords
+        val prefix = word.lowercase()
+        return dictionary.asSequence()
+            .filter { it.startsWith(prefix) && it != prefix }
+            .distinct()
+            .take(3)
+            .toList()
+    }
+
     private fun addToolbar() {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -88,20 +127,35 @@ class CustomKeyboardService : InputMethodService() {
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }
-        bar.addView(brand, LinearLayout.LayoutParams(dp(38), ViewGroup.LayoutParams.MATCH_PARENT))
+        bar.addView(brand, LinearLayout.LayoutParams(dp(34), ViewGroup.LayoutParams.MATCH_PARENT))
 
-        val suggestions = if (english) listOf("Hello", "Thanks", "Okay") else listOf("Привет", "Спасибо", "Да")
-        suggestions.forEach { word ->
+        val word = currentWord()
+        val suggestions = suggestionsFor(word)
+        suggestions.forEach { candidate ->
             val item = TextView(this).apply {
-                text = word
+                text = candidate
                 textSize = 14f
-                setTextColor(Color.rgb(225, 225, 232))
+                setTextColor(Color.rgb(235, 235, 242))
                 gravity = Gravity.CENTER
+                setSingleLine(true)
                 setOnClickListener {
-                    currentInputConnection?.commitText(word, 1)
+                    val ic = currentInputConnection ?: return@setOnClickListener
+                    val typed = currentWord()
+                    if (typed.isNotEmpty()) ic.deleteSurroundingText(typed.length, 0)
+                    ic.commitText(candidate + " ", 1)
+                    render()
                 }
             }
             bar.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        }
+        if (suggestions.isEmpty()) {
+            val hint = TextView(this).apply {
+                text = if (english) "Type to see suggestions" else "Начните вводить слово"
+                textSize = 11f
+                setTextColor(Color.rgb(125, 125, 140))
+                gravity = Gravity.CENTER
+            }
+            bar.addView(hint, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
         }
         val lang = TextView(this).apply {
             text = if (english) "EN" else "RU"
