@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="Custom Board" android:icon="@drawable/custom_board_logo" android:roundIcon="@drawable/custom_board_icon" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+    <application android:label="Custom Board" android:icon="@drawable/custom_board_logo" android:roundIcon="@drawable/custom_board_logo" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
         <service
             android:name=".CustomKeyboardService"
             android:label="Custom Board"
