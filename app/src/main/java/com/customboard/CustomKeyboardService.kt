@@ -103,15 +103,49 @@ class CustomKeyboardService : InputMethodService() {
         return before.takeLastWhile { it.isLetter() }
     }
 
+    // Damerau-Levenshtein distance catches missing, extra and swapped letters.
+    private fun editDistance(a: String, b: String): Int {
+        val left = a.lowercase()
+        val right = b.lowercase()
+        if (kotlin.math.abs(left.length - right.length) > 2) return 3
+        val d = Array(left.length + 1) { IntArray(right.length + 1) }
+        for (i in 0..left.length) d[i][0] = i
+        for (j in 0..right.length) d[0][j] = j
+        for (i in 1..left.length) {
+            for (j in 1..right.length) {
+                val cost = if (left[i - 1] == right[j - 1]) 0 else 1
+                d[i][j] = minOf(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+                if (i > 1 && j > 1 && left[i - 1] == right[j - 2] && left[i - 2] == right[j - 1]) {
+                    d[i][j] = minOf(d[i][j], d[i - 2][j - 2] + 1)
+                }
+            }
+        }
+        return d[left.length][right.length]
+    }
+
     private fun suggestionsFor(word: String): List<String> {
-        if (word.isBlank()) return emptyList()
-        val dictionary = if (english) englishWords else russianWords
-        val prefix = word.lowercase()
-        return dictionary.asSequence()
-            .filter { it.startsWith(prefix) && it != prefix }
-            .distinct()
+        val typed = word.lowercase()
+        if (typed.length < 2) return emptyList()
+        val dictionary = (if (english) englishWords else russianWords).distinct()
+        val completions = dictionary
+            .filter { it.startsWith(typed) && it != typed }
+            .sortedWith(compareBy<String>({ it.length - typed.length }, { it.length }))
+        val maxDistance = if (typed.length >= 6) 2 else 1
+        val corrections = dictionary.asSequence()
+            .filter { candidate ->
+                candidate != typed &&
+                    !candidate.startsWith(typed) &&
+                    kotlin.math.abs(candidate.length - typed.length) <= maxDistance &&
+                    editDistance(typed, candidate) <= maxDistance
+            }
+            .sortedWith(compareBy<String>(
+                { editDistance(typed, it) },
+                { kotlin.math.abs(it.length - typed.length) },
+                { it.length }
+            ))
             .take(3)
             .toList()
+        return (completions + corrections).distinct().take(3)
     }
 
     private fun addToolbar() {
