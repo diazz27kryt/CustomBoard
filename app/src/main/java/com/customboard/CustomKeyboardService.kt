@@ -127,7 +127,7 @@ class CustomKeyboardService : InputMethodService() {
             return
         }
 
-        addRow(("1234567890").map { Triple(it.toString(), "", 1f) }, 34, 14f)
+        addRow(("1234567890").map { Triple(it.toString(), it.toString(), 1f) }, 34, 14f)
 
         val first = if (english) listOf("q","w","e","r","t","y","u","i","o","p") else listOf("й","ц","у","к","е","н","г","ш","щ","з","х")
         val second = if (english) listOf("a","s","d","f","g","h","j","k","l") else listOf("ф","ы","в","а","п","р","о","л","д","ж","э")
