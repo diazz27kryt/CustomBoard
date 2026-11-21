@@ -129,7 +129,7 @@ class SettingsActivity : Activity() {
         line.addView(value)
         card.addView(line)
         val seek = SeekBar(this).apply {
-            max = max - min
+            this.max = max - min
             progress = (prefs.getInt(key, default) - min).coerceIn(0, max)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
