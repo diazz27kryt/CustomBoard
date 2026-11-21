@@ -157,7 +157,7 @@ class CustomKeyboardService : InputMethodService() {
         return TextView(this).apply {
             text = label
             styleText(this, size, if (whiteTheme) Color.rgb(25,25,30) else Color.WHITE)
-            background = GradientDrawable().apply {
+            this.background = GradientDrawable().apply {
                 cornerRadius = dp(9).toFloat()
                 setColor(when (value) {
                     "↵" -> Color.rgb(76,105,245)
