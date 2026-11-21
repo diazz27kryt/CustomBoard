@@ -167,6 +167,17 @@ class CustomKeyboardService : InputMethodService() {
             }
             setPadding(dp(1), 0, dp(1), 0)
             setOnClickListener { feedback(); handle(value) }
+            if (value == "⌫") {
+                setOnLongClickListener {
+                    val ic = currentInputConnection
+                    if (ic != null) {
+                        val count = currentWord().length
+                        ic.deleteSurroundingText(if (count > 0) count else 8, 0)
+                        render()
+                    }
+                    true
+                }
+            }
             val lp = LinearLayout.LayoutParams(0, dp(height), weight)
             lp.setMargins(dp(2), dp(2), dp(2), dp(2))
             layoutParams = lp
@@ -210,6 +221,28 @@ class CustomKeyboardService : InputMethodService() {
         root.addView(bar)
     }
 
+    private fun addEditToolbar() {
+        val white = settingString("theme", "Black") == "White"
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        fun action(label: String, actionId: Int) {
+            val item = TextView(this).apply {
+                text = label
+                styleText(this, 11f, if (white) Color.DKGRAY else Color.LTGRAY, true)
+                setOnClickListener {
+                    currentInputConnection?.performContextMenuAction(actionId)
+                }
+            }
+            bar.addView(item, LinearLayout.LayoutParams(0, dp(28), 1f))
+        }
+        action("Выделить всё", android.R.id.selectAll)
+        action("Копировать", android.R.id.copy)
+        action("Вставить", android.R.id.paste)
+        root.addView(bar, LinearLayout.LayoutParams(-1, dp(28)))
+    }
+
     private fun renderPanel() {
         val white = settingString("theme","Black") == "White"
         val title = TextView(this).apply {
@@ -250,6 +283,7 @@ class CustomKeyboardService : InputMethodService() {
         root.minimumHeight = dp(settingInt("keyboard_height", 276))
         if (panel.isNotEmpty()) { renderPanel(); return }
         addToolbar()
+        addEditToolbar()
         if (symbols) {
             addRow(("1234567890").map { Triple(it.toString(),it.toString(),1f) }, 38, 17f)
             addRow(listOf("@","#","\$","%","&","-","+","(",")","/").map { Triple(it,it,1f) }, 44, 17f)
