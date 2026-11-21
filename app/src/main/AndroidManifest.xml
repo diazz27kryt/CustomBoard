@@ -1,8 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="Custom Board" android:icon="@drawable/custom_board_icon" android:roundIcon="@drawable/custom_board_icon" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+    <application android:label="Custom Board" android:icon="@drawable/custom_board_logo" android:roundIcon="@drawable/custom_board_icon" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
         <service
             android:name=".CustomKeyboardService"
             android:label="Custom Board"
+            android:icon="@drawable/custom_board_logo"
             android:permission="android.permission.BIND_INPUT_METHOD"
             android:exported="true">
             <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>
