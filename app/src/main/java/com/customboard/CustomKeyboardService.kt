@@ -32,6 +32,7 @@ class CustomKeyboardService : InputMethodService() {
             setBackgroundColor(bg)
             minimumHeight = dp(276)
         }
+        loadRussianDictionary()
         render()
         return root
     }
@@ -75,17 +76,23 @@ class CustomKeyboardService : InputMethodService() {
         )
     }
 
-    private val russianWords = listOf(
-        "привет", "приветик", "привычка", "природа", "пример", "просто", "проблема", "проверка",
-        "почему", "пока", "потом", "после", "пожалуйста", "спасибо", "сегодня", "завтра",
-        "сейчас", "хорошо", "хороший", "хорошая", "можно", "нужно", "будет", "было",
-        "есть", "если", "когда", "который", "которая", "которые", "чтобы", "тогда",
-        "делать", "дело", "дом", "друг", "друзья", "игра", "играть", "клавиатура",
-        "телефон", "компьютер", "работает", "работать", "люблю", "хочу", "могу",
-        "давай", "ладно", "ага", "нет", "да", "мой", "моя", "мне", "тебе", "твой",
-        "это", "этот", "эта", "там", "тут", "очень", "больше", "меньше", "новый",
-        "новая", "красиво", "удобно", "быстро", "медленно", "круто", "классно"
-    )
+    private var russianWords: List<String> = emptyList()
+    private var russianByFirst: Map<Char, List<String>> = emptyMap()
+    private var russianByPrefix: Map<String, List<String>> = emptyMap()
+
+    private fun loadRussianDictionary() {
+        if (russianWords.isNotEmpty()) return
+        val words = assets.open("words_ru.txt").bufferedReader().useLines { lines ->
+            lines.map { it.trim().lowercase() }
+                .filter { it.length >= 2 && it.all { ch -> ch in 'а'..'я' || ch == 'ё' } }
+                .distinct()
+                .toList()
+        }
+        russianWords = words
+        russianByFirst = words.groupBy { it.first() }
+        russianByPrefix = words.filter { it.length >= 2 }.groupBy { it.take(2) }
+    }
+
     private val englishWords = listOf(
         "hello", "help", "hey", "thanks", "thank", "there", "their", "then", "this",
         "that", "these", "those", "the", "they", "them", "today", "tomorrow", "time",
@@ -126,7 +133,28 @@ class CustomKeyboardService : InputMethodService() {
     private fun suggestionsFor(word: String): List<String> {
         val typed = word.lowercase()
         if (typed.length < 2) return emptyList()
-        val dictionary = (if (english) englishWords else russianWords).distinct()
+        val dictionary = if (english) englishWords else {
+            val first = russianByFirst[typed.first()].orEmpty()
+            val prefix = if (typed.length >= 2) russianByPrefix[typed.take(2)].orEmpty() else first
+            // Frequency order is preserved in the source list, so common words appear first.
+            prefix.filter { it.startsWith(typed) && it != typed }.take(3) +
+                first.asSequence()
+                    .filter { candidate ->
+                        candidate != typed &&
+                            !candidate.startsWith(typed) &&
+                            kotlin.math.abs(candidate.length - typed.length) <= 2 &&
+                            editDistance(typed, candidate) <= if (typed.length >= 6) 2 else 1
+                    }
+                    .sortedWith(compareBy<String>(
+                        { editDistance(typed, it) },
+                        { kotlin.math.abs(it.length - typed.length) },
+                        { it.length }
+                    ))
+                    .take(3)
+                    .toList()
+        }
+        if (!english) return dictionary.distinct().take(3)
+
         val completions = dictionary
             .filter { it.startsWith(typed) && it != typed }
             .sortedWith(compareBy<String>({ it.length - typed.length }, { it.length }))
