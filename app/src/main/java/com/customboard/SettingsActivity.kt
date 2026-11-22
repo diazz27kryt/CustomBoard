@@ -8,6 +8,9 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.widget.*
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.view.inputmethod.InputMethodManager
 
 class SettingsActivity : Activity() {
     private val prefs by lazy { getSharedPreferences("keyboard_settings", Context.MODE_PRIVATE) }
@@ -29,6 +32,30 @@ class SettingsActivity : Activity() {
         page.addView(logo,LinearLayout.LayoutParams(dp(76),dp(76)))
         page.addView(label("Custom Board",28f,white,true))
         page.addView(label("Настройки клавиатуры",14f,muted,false).apply { setPadding(0,0,0,dp(18)) })
+
+        section(page,"ПОДКЛЮЧЕНИЕ КЛАВИАТУРЫ")
+        page.addView(label("Включи Custom Board в списке клавиатур Android, затем выбери её.",13f,muted,false).apply {
+            setPadding(dp(14),dp(12),dp(14),dp(12))
+            background=GradientDrawable().apply { cornerRadius=dp(14).toFloat(); setColor(panelColor) }
+        })
+        val openSettings = Button(this).apply {
+            text="1. Включить Custom Board"; isAllCaps=false
+            setOnClickListener { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
+        }
+        page.addView(openSettings,LinearLayout.LayoutParams(-1,dp(50)).apply { setMargins(0,dp(6),0,dp(4)) })
+        val chooseKeyboard = Button(this).apply {
+            text="2. Выбрать Custom Board"; isAllCaps=false
+            setOnClickListener {
+                val imm=getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                if(imm.enabledInputMethodList.any { it.packageName==packageName }) {
+                    imm.showInputMethodPicker()
+                } else {
+                    Toast.makeText(this@SettingsActivity,"Сначала включи Custom Board в настройках Android",Toast.LENGTH_LONG).show()
+                    startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                }
+            }
+        }
+        page.addView(chooseKeyboard,LinearLayout.LayoutParams(-1,dp(50)).apply { setMargins(0,dp(2),0,dp(12)) })
 
         section(page,"ВНЕШНИЙ ВИД")
         val themes = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
