@@ -31,6 +31,7 @@ class CustomKeyboardService : InputMethodService() {
     private var panel = ""
     private var emojiCategory = "Часто"
     private var emojiQuery = ""
+    private var updatingEmojiSearch = false
     private lateinit var root: LinearLayout
     private val prefs by lazy { getSharedPreferences("keyboard_settings", Context.MODE_PRIVATE) }
     private var russianWords: List<String> = emptyList()
@@ -304,8 +305,10 @@ class CustomKeyboardService : InputMethodService() {
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    emojiQuery = s?.toString().orEmpty()
-                    refreshEmojiGrid()
+                    if (!updatingEmojiSearch) {
+                        emojiQuery = s?.toString().orEmpty()
+                        refreshEmojiGrid()
+                    }
                 }
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
@@ -353,9 +356,10 @@ class CustomKeyboardService : InputMethodService() {
                 }
                 setOnLongClickListener {
                     val favorites = savedEmoji("favorite_emojis").toMutableList()
-                    if (emoji in favorites) favorites.remove(emoji) else favorites.add(0, emoji)
+                    val added = emoji !in favorites
+                    if (added) favorites.add(0, emoji) else favorites.remove(emoji)
                     prefs.edit().putString("favorite_emojis", favorites.distinct().take(100).joinToString("|")).apply()
-                    Toast.makeText(this@CustomKeyboardService, if (emoji in favorites) "Добавлено в избранное" else "Убрано из избранного", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@CustomKeyboardService, if (added) "Добавлено в избранное" else "Убрано из избранного", Toast.LENGTH_SHORT).show()
                     true
                 }
             }
@@ -380,8 +384,10 @@ class CustomKeyboardService : InputMethodService() {
             val query = emojiQuery
             render()
             val search = root.getChildAt(1) as? EditText
+            updatingEmojiSearch = true
             search?.setText(query)
             search?.setSelection(search.text.length)
+            updatingEmojiSearch = false
         }
     }
 
