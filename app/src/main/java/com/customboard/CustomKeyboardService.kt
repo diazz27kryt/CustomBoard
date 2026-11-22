@@ -190,7 +190,7 @@ class CustomKeyboardService : InputMethodService() {
         root.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(height + 4)))
     }
 
-    private fun toolbarButton(label: String, action: () -> Unit): TextView {
+    private fun toolbarButton(label: String, action: () -> Any?): TextView {
         val white = settingString("theme", "Black") == "White"
         return TextView(this).apply {
             text = label
