@@ -18,6 +18,10 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.EditText
+import android.widget.ScrollView
+import android.widget.GridLayout
+import android.widget.HorizontalScrollView
 import kotlin.math.abs
 
 class CustomKeyboardService : InputMethodService() {
@@ -25,6 +29,8 @@ class CustomKeyboardService : InputMethodService() {
     private var symbols = false
     private var shifted = false
     private var panel = ""
+    private var emojiCategory = "Часто"
+    private var emojiQuery = ""
     private lateinit var root: LinearLayout
     private val prefs by lazy { getSharedPreferences("keyboard_settings", Context.MODE_PRIVATE) }
     private var russianWords: List<String> = emptyList()
@@ -257,27 +263,146 @@ class CustomKeyboardService : InputMethodService() {
         root.addView(bar, LinearLayout.LayoutParams(-1, dp(56)))
     }
 
+    private val emojiGroups = linkedMapOf(
+        "Часто" to listOf("😀","😂","🥹","😍","🥰","😘","😊","😉","😎","😭","🥲","🤣","🤔","🙃","😴","🤗","🫡","💀","❤️","🩷","💔","🔥","✨","👍","👎","🙏","🤝","👏","💯","🎉","🥳","💖"),
+        "Смайлы" to listOf("😀","😃","😄","😁","😆","😅","😂","🤣","🥹","😊","😇","🙂","🙃","😉","😍","🥰","😘","😗","😙","😚","😋","😛","😜","🤪","🤨","🧐","🤓","😎","🥸","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🫣","🤗","🫡","🤭","🫢","🫠","🤫","🤥","😶","🫥","😐","😑","😬","🙄","😮‍💨","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","💀","☠️","🤡","👻","👽","🤖"),
+        "Жесты" to listOf("👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🤝","🙏","✍️","💅","🤳","💪","🫶","🫵"),
+        "Сердца" to listOf("❤️","🩷","🧡","💛","💚","💙","🩵","💜","🤎","🖤","🩶","🤍","💔","❤️‍🔥","❤️‍🩹","💕","💞","💓","💗","💖","💘","💝","💟","❣️","💌","💋"),
+        "Животные" to listOf("🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐻‍❄️","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈","🙉","🙊","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🦋","🐌","🐞","🐢","🐍","🦎","🐙","🦑","🦀","🐬","🐳","🦈","🐊","🦓","🦍","🦒","🐘","🦛","🦘","🐈","🐕"),
+        "Еда" to listOf("🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🥑","🥦","🥕","🌽","🌶️","🥒","🥬","🥔","🍞","🥐","🥨","🧀","🥚","🍳","🥞","🧇","🥓","🍔","🍟","🍕","🌭","🥪","🌮","🌯","🥗","🍿","🍩","🍪","🎂","🍰","🍫","🍬","🍭","☕","🧋","🥤"),
+        "Предметы" to listOf("⚽","🏀","🏈","⚾","🎾","🏐","🎮","🕹️","🎧","🎤","🎹","🎸","🥁","📱","💻","⌚","📷","📸","💡","📚","✏️","🖊️","🔒","🔑","💎","🎁","🎈","🎀","🧸","🚗","🚕","🚙","🏎️","🚲","✈️","🚀","🌍","⭐","🌟","☀️","🌙","⚡","☁️","🌈","❄️","🔥","💧","🌊")
+    )
+    private val emojiNames = mapOf(
+        "улыбка" to "😀", "смех" to "😂", "слёзы" to "😭", "любовь" to "❤️", "сердце" to "❤️",
+        "огонь" to "🔥", "звезда" to "⭐", "глаз" to "👀", "кот" to "🐱", "собака" to "🐶",
+        "лайк" to "👍", "палец" to "👍", "молитва" to "🙏", "рукопожатие" to "🤝", "клоун" to "🤡",
+        "череп" to "💀", "робот" to "🤖", "привет" to "👋", "еда" to "🍔", "пицца" to "🍕",
+        "машина" to "🚗", "самолёт" to "✈️", "ракета" to "🚀", "подарок" to "🎁", "день рождения" to "🎂"
+    )
+    private fun savedEmoji(key: String): List<String> =
+        prefs.getString(key, "").orEmpty().split("|").filter { it.isNotBlank() }
+
+    private fun rememberEmoji(value: String) {
+        val recent = (listOf(value) + savedEmoji("recent_emojis").filter { it != value }).take(36)
+        prefs.edit().putString("recent_emojis", recent.joinToString("|")).apply()
+    }
+
+    private fun renderEmojiPanel() {
+        val white = settingString("theme","Black") == "White"
+        val fg = if (white) Color.rgb(25,25,30) else Color.WHITE
+        val muted = if (white) Color.DKGRAY else Color.LTGRAY
+        val title = TextView(this).apply { text = "ЭМОДЗИ В СТИЛЕ iOS"; styleText(this, 13f, fg, true) }
+        root.addView(title, LinearLayout.LayoutParams(-1, dp(30)))
+        val search = EditText(this).apply {
+            hint = "Поиск эмодзи"
+            setSingleLine(true)
+            textSize = 14f
+            setTextColor(fg); setHintTextColor(muted)
+            setPadding(dp(12), 0, dp(12), 0)
+            background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(if (white) Color.rgb(230,230,235) else Color.rgb(48,48,52)) }
+            setText(emojiQuery)
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    emojiQuery = s?.toString().orEmpty()
+                    refreshEmojiGrid()
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
+        }
+        root.addView(search, LinearLayout.LayoutParams(-1, dp(42)).apply { setMargins(dp(4), dp(3), dp(4), dp(5)) })
+        val categories = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
+        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        (listOf("Часто","Недавние","Избранное") + emojiGroups.keys.filter { it != "Часто" }).forEach { name ->
+            val tab = TextView(this).apply {
+                text = name
+                textSize = 12f
+                setTextColor(if (emojiCategory == name) Color.WHITE else muted)
+                gravity = Gravity.CENTER
+                setPadding(dp(12), 0, dp(12), 0)
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(16).toFloat()
+                    setColor(if (emojiCategory == name) Color.rgb(76,105,245) else if (white) Color.rgb(230,230,235) else Color.rgb(42,42,46))
+                }
+                setOnClickListener { emojiCategory = name; emojiQuery = ""; render() }
+            }
+            tabs.addView(tab, LinearLayout.LayoutParams(-2, dp(34)).apply { setMargins(dp(3), 0, dp(3), 0) })
+        }
+        categories.addView(tabs)
+        root.addView(categories, LinearLayout.LayoutParams(-1, dp(40)))
+        val gridScroll = ScrollView(this).apply { isFillViewport = true }
+        val grid = GridLayout(this).apply { columnCount = 8; alignmentMode = GridLayout.ALIGN_BOUNDS }
+        val source = when (emojiCategory) {
+            "Недавние" -> savedEmoji("recent_emojis")
+            "Избранное" -> savedEmoji("favorite_emojis")
+            else -> emojiGroups[emojiCategory].orEmpty()
+        }
+        val query = emojiQuery.trim().lowercase()
+        val filtered = if (query.isBlank()) source else source.filter { emoji ->
+            emoji.contains(query) || emojiNames.any { (word, value) -> word.contains(query) && value == emoji }
+        }
+        filtered.forEach { emoji ->
+            val cell = TextView(this).apply {
+                text = emoji
+                textSize = 25f
+                gravity = Gravity.CENTER
+                setOnClickListener {
+                    currentInputConnection?.commitText(emoji, 1)
+                    rememberEmoji(emoji)
+                    panel = ""; render()
+                }
+                setOnLongClickListener {
+                    val favorites = savedEmoji("favorite_emojis").toMutableList()
+                    if (emoji in favorites) favorites.remove(emoji) else favorites.add(0, emoji)
+                    prefs.edit().putString("favorite_emojis", favorites.distinct().take(100).joinToString("|")).apply()
+                    Toast.makeText(this@CustomKeyboardService, if (emoji in favorites) "Добавлено в избранное" else "Убрано из избранного", Toast.LENGTH_SHORT).show()
+                    true
+                }
+            }
+            grid.addView(cell, GridLayout.LayoutParams().apply {
+                width = 0; height = dp(42); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                setMargins(dp(1), dp(1), dp(1), dp(1))
+            })
+        }
+        gridScroll.addView(grid)
+        root.addView(gridScroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val hint = TextView(this).apply {
+            text = "Нажми — вставить  •  Удерживай — в избранное"
+            styleText(this, 10f, muted)
+        }
+        root.addView(hint, LinearLayout.LayoutParams(-1, dp(20)))
+        addRow(listOf(Triple("⌨","close",1f)), 40, 13f)
+    }
+
+    private fun refreshEmojiGrid() {
+        // Search updates are applied by rebuilding the emoji panel while preserving the query.
+        if (panel == "emoji" && ::root.isInitialized) {
+            val query = emojiQuery
+            render()
+            val search = root.getChildAt(1) as? EditText
+            search?.setText(query)
+            search?.setSelection(search.text.length)
+        }
+    }
+
     private fun renderPanel() {
+        if (panel == "emoji") { renderEmojiPanel(); return }
         val white = settingString("theme","Black") == "White"
         val title = TextView(this).apply {
-            text = when(panel) { "clipboard" -> "БУФЕР ОБМЕНА"; "emoji" -> "ЭМОДЗИ"; else -> "БЫСТРЫЕ ФРАЗЫ" }
+            text = if (panel == "clipboard") "БУФЕР ОБМЕНА" else "БЫСТРЫЕ ФРАЗЫ"
             styleText(this, 13f, if (white) Color.DKGRAY else Color.WHITE, true)
         }
         root.addView(title, LinearLayout.LayoutParams(-1, dp(34)))
-        val items = when(panel) {
-            "clipboard" -> clipboardItems()
-            "emoji" -> listOf("😀","😂","🥹","😍","🔥","❤️","👍","😭","💀","✨","😎","🤝","🙏","🎉","🤣","😊","🤔","🙃","💯","🫡")
-            else -> phrases()
-        }
+        val items = if (panel == "clipboard") clipboardItems() else phrases()
         val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         items.chunked(3).forEach { group ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             group.forEach { item ->
                 val cell = TextView(this).apply {
                     text = item.take(36)
-                    styleText(this, if (panel == "emoji") 25f else 14f, if (white) Color.BLACK else Color.WHITE)
+                    styleText(this, 14f, if (white) Color.BLACK else Color.WHITE)
                     setOnClickListener {
-                        currentInputConnection?.commitText(item + if (panel == "emoji") "" else " ", 1)
+                        currentInputConnection?.commitText(item + " ", 1)
                         panel = ""; render()
                     }
                 }
