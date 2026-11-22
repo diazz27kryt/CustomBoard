@@ -38,8 +38,8 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun colors(): Triple<Int, Int, Int> = when (settingString("theme", "Black")) {
         "White" -> Triple(Color.rgb(242,242,246), Color.WHITE, Color.rgb(218,218,226))
-        "Glass" -> Triple(Color.rgb(20,20,25), Color.rgb(54,54,63), Color.rgb(86,86,100))
-        else -> Triple(Color.rgb(13,13,16), Color.rgb(43,43,49), Color.rgb(66,66,76))
+        "Glass" -> Triple(Color.rgb(24,24,27), Color.rgb(48,48,52), Color.rgb(72,72,78))
+        else -> Triple(Color.rgb(29,29,31), Color.rgb(42,42,44), Color.rgb(68,68,72))
     }
 
     override fun onCreateInputView(): View {
@@ -190,57 +190,71 @@ class CustomKeyboardService : InputMethodService() {
         root.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(height + 4)))
     }
 
-    private fun addToolbar() {
-        val (_, _, _) = colors()
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val brand = TextView(this).apply {
-            text = "CB"; styleText(this, 14f, if (settingString("theme","Black") == "White") Color.BLACK else Color.WHITE, true)
+    private fun toolbarButton(label: String, action: () -> Unit): TextView {
+        val white = settingString("theme", "Black") == "White"
+        return TextView(this).apply {
+            text = label
+            styleText(this, 22f, if (white) Color.DKGRAY else Color.rgb(226,226,230))
+            setOnClickListener { feedback(); action() }
+            layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f)
         }
-        bar.addView(brand, LinearLayout.LayoutParams(dp(32), dp(30)))
-        suggestionsFor(currentWord()).forEach { candidate ->
-            val item = TextView(this).apply {
-                text = candidate
-                styleText(this, 13f, if (settingString("theme","Black") == "White") Color.BLACK else Color.WHITE)
-                setSingleLine(true)
-                setOnClickListener {
-                    val ic = currentInputConnection ?: return@setOnClickListener
-                    val typed = currentWord()
-                    if (typed.isNotEmpty()) ic.deleteSurroundingText(typed.length, 0)
-                    ic.commitText(candidate + " ", 1)
-                    render()
-                }
-            }
-            bar.addView(item, LinearLayout.LayoutParams(0, dp(30), 1f))
-        }
-        val lang = TextView(this).apply {
-            text = if (english) "EN" else "RU"
-            styleText(this, 12f, if (settingString("theme","Black") == "White") Color.DKGRAY else Color.LTGRAY, true)
-            setOnClickListener { english = !english; render() }
-        }
-        bar.addView(lang, LinearLayout.LayoutParams(dp(32), dp(30)))
-        root.addView(bar)
+    }
+
+    private fun moveCursor(delta: Int) {
+        val ic = currentInputConnection ?: return
+        val before = ic.getTextBeforeCursor(2048, 0)?.length ?: 0
+        val after = ic.getTextAfterCursor(2048, 0)?.length ?: 0
+        ic.setSelection((before + delta).coerceIn(0, before + after), (before + delta).coerceIn(0, before + after))
     }
 
     private fun addEditToolbar() {
-        val white = settingString("theme", "Black") == "White"
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setBackgroundColor(if (settingString("theme","Black") == "White") Color.rgb(232,232,236) else Color.rgb(36,36,39))
+        }
+        val controls = listOf(
+            "↤" to { val ic=currentInputConnection; val n=ic?.getTextBeforeCursor(2048,0)?.toString().orEmpty(); moveCursor(-n.length) },
+            "▣" to { currentInputConnection?.performContextMenuAction(android.R.id.selectAll) },
+            "⌃" to { val ic=currentInputConnection; val n=ic?.getTextBeforeCursor(2048,0)?.toString().orEmpty(); val p=n.lastIndexOf("\\n"); moveCursor(-(p+1)) },
+            "‹" to { moveCursor(-1) },
+            "T" to { currentInputConnection?.performContextMenuAction(android.R.id.selectAll) },
+            "›" to { moveCursor(1) },
+            "⌄" to { val ic=currentInputConnection; val n=ic?.getTextBeforeCursor(2048,0)?.toString().orEmpty(); val p=n.indexOf("\\n"); if(p>=0) moveCursor(n.length-p) },
+            "▢" to { currentInputConnection?.performContextMenuAction(android.R.id.copy) },
+            "▤" to { currentInputConnection?.performContextMenuAction(android.R.id.paste) },
+            "↦" to { val ic=currentInputConnection; val n=ic?.getTextBeforeCursor(2048,0)?.toString().orEmpty(); val a=ic?.getTextAfterCursor(2048,0)?.toString().orEmpty(); val p=a.indexOf("\\n"); moveCursor(if(p>=0) p+1 else a.length) }
+        )
+        controls.forEach { (label, action) -> bar.addView(toolbarButton(label, action)) }
+        root.addView(bar, LinearLayout.LayoutParams(-1, dp(52)))
+    }
+
+    private fun addToolbar() {
+        val white = settingString("theme","Black") == "White"
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        fun action(label: String, actionId: Int) {
-            val item = TextView(this).apply {
+        fun item(label: String, action: () -> Unit) {
+            val view = TextView(this).apply {
                 text = label
-                styleText(this, 11f, if (white) Color.DKGRAY else Color.LTGRAY, true)
-                setOnClickListener {
-                    currentInputConnection?.performContextMenuAction(actionId)
-                }
+                styleText(this, if (label == "Я") 27f else 24f, if (white) Color.DKGRAY else Color.rgb(226,226,230))
+                setOnClickListener { feedback(); action() }
             }
-            bar.addView(item, LinearLayout.LayoutParams(0, dp(28), 1f))
+            bar.addView(view, LinearLayout.LayoutParams(0, dp(54), 1f))
         }
-        action("Выделить всё", android.R.id.selectAll)
-        action("Копировать", android.R.id.copy)
-        action("Вставить", android.R.id.paste)
-        root.addView(bar, LinearLayout.LayoutParams(-1, dp(28)))
+        item("Я") { english = false; panel = ""; render() }
+        item("✦") { panel = "phrases"; render() }
+        item("▤") { handle("clipboard") }
+        item("Aあ") { english = !english; render() }
+        item("⚙") {
+            try {
+                val intent = android.content.Intent(this, SettingsActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (_: Exception) {}
+        }
+        item("☻") { handle("emoji") }
+        root.addView(bar, LinearLayout.LayoutParams(-1, dp(56)))
     }
 
     private fun renderPanel() {
@@ -282,8 +296,8 @@ class CustomKeyboardService : InputMethodService() {
         root.setBackgroundColor(background)
         root.minimumHeight = dp(settingInt("keyboard_height", 276))
         if (panel.isNotEmpty()) { renderPanel(); return }
-        addToolbar()
         addEditToolbar()
+        addToolbar()
         if (symbols) {
             addRow(("1234567890").map { Triple(it.toString(),it.toString(),1f) }, 38, 17f)
             addRow(listOf("@","#","\$","%","&","-","+","(",")","/").map { Triple(it,it,1f) }, 44, 17f)
