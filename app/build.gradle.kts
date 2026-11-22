@@ -6,7 +6,7 @@ android {
     namespace = "com.customboard"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.customboard"
+        applicationId = "com.customboard.keyboard"
         minSdk = 23
         targetSdk = 35
         versionCode = 100
